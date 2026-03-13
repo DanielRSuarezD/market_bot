@@ -1,71 +1,111 @@
-import requests
 import yfinance as yf
 
+FX_TICKERS = {
 
-def get_fx():
+"MXN": "MXN=X",
+"BRL": "BRL=X",
+"COP": "COP=X",
+"PEN": "PEN=X",
+"CLP": "CLP=X",
+"ARS": "ARS=X",
+"UYU": "UYU=X",
+"CRC": "CRC=X"
 
-    url = "https://open.er-api.com/v6/latest/USD"
+}
 
-    r = requests.get(url)
+ENERGY_TICKERS = {
 
-    data = r.json()
+"BRENT": "BZ=F",
+"WTI": "CL=F",
+"NATGAS": "NG=F",
+"GASOLINE": "RB=F"
 
-    rates = data["rates"]
+}
 
-    fx = {}
+GLOBAL_TICKERS = {
 
-    fx["EUR"] = round(1 / rates["EUR"], 3)
-    fx["MXN"] = round(rates["MXN"], 2)
-    fx["COP"] = round(rates["COP"], 2)
-    fx["PEN"] = round(rates["PEN"], 2)
-    fx["CRC"] = round(rates["CRC"], 2)
-    fx["RUB"] = round(rates["RUB"], 2)
-    fx["AED"] = round(rates["AED"], 2)
+"SP500": "^GSPC",
+"NASDAQ": "^IXIC",
+"DOW": "^DJI",
+"DAX": "^GDAXI",
+"NIKKEI": "^N225",
 
-    return fx
+"GOLD": "GC=F",
+"SILVER": "SI=F",
 
-def get_oil():
+"BITCOIN": "BTC-USD",
+"ETHEREUM": "ETH-USD"
 
-    brent = yf.Ticker("BZ=F").history(period="1d")["Close"].iloc[-1]
-    wti = yf.Ticker("CL=F").history(period="1d")["Close"].iloc[-1]
+}
 
-    urals = brent - 15
+def get_price(ticker):
 
-    return {
-        "Brent": round(float(brent),2),
-        "WTI": round(float(wti),2),
-        "Urals": round(float(urals),2),
-        "Spread": round(float(brent-urals),2)
-    }
+    data = yf.Ticker(ticker)
+
+    hist = data.history(period="2d")
+
+    if len(hist) < 2:
+        return None
+
+    today = hist["Close"].iloc[-1]
+    yesterday = hist["Close"].iloc[-2]
+
+    change = today - yesterday
+    pct = (change / yesterday) * 100
+
+    return round(today,2), round(pct,2)
+
+def get_assets_data(assets):
+
+    results = {}
+
+    for asset in assets:
+
+        ticker = None
+
+        if asset in FX_TICKERS:
+            ticker = FX_TICKERS[asset]
+
+        elif asset in ENERGY_TICKERS:
+            ticker = ENERGY_TICKERS[asset]
+
+        elif asset in GLOBAL_TICKERS:
+            ticker = GLOBAL_TICKERS[asset]
+
+        if ticker:
+
+            data = get_price(ticker)
+
+            if data:
+
+                price, pct = data
+
+                results[asset] = {
+
+                    "price": price,
+                    "change": pct
+
+                }
+
+    return results
 
 
-def get_dxy():
+def get_top_movers():
 
-    dxy = yf.Ticker("DX-Y.NYB").history(period="1d")["Close"].iloc[-1]
+    assets = []
 
-    return round(float(dxy),2)
+    assets += list(FX_TICKERS.keys())
+    assets += list(ENERGY_TICKERS.keys())
+    assets += list(GLOBAL_TICKERS.keys())
 
+    data = get_assets_data(assets)
 
-import yfinance as yf
+    movers = []
 
-def get_global():
+    for asset in data:
 
-    data = {}
+        movers.append((asset, data[asset]["change"]))
 
-    data["SP500"] = round(yf.Ticker("^GSPC").history(period="1d")["Close"].iloc[-1],2)
+    movers.sort(key=lambda x: abs(x[1]), reverse=True)
 
-    data["Gold"] = round(yf.Ticker("GC=F").history(period="1d")["Close"].iloc[-1],2)
-
-    data["Silver"] = round(yf.Ticker("SI=F").history(period="1d")["Close"].iloc[-1],2)
-
-    data["BTC"] = round(yf.Ticker("BTC-USD").history(period="1d")["Close"].iloc[-1],2)
-
-    return data
-
-def get_history(symbol):
-
-    ticker = f"{symbol}=X"
-
-    data = yf.Ticker(ticker).history(period="7d")["Close"]
-
-    return data
+    return movers[:5]
