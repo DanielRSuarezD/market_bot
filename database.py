@@ -8,25 +8,35 @@ def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
-    # borrar tablas viejas para evitar errores de schema
-    cursor.execute("DROP TABLE IF EXISTS users")
-    cursor.execute("DROP TABLE IF EXISTS assets")
-
-    # tabla usuarios
+    # crear tabla usuarios
     cursor.execute("""
-    CREATE TABLE users (
+    CREATE TABLE IF NOT EXISTS users (
         user_id INTEGER PRIMARY KEY
     )
     """)
 
-    # tabla activos
+    # crear tabla activos
     cursor.execute("""
-    CREATE TABLE assets (
+    CREATE TABLE IF NOT EXISTS assets (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
         asset TEXT
     )
     """)
+
+    conn.commit()
+
+    # verificar columnas de users
+    cursor.execute("PRAGMA table_info(users)")
+    cols = [c[1] for c in cursor.fetchall()]
+
+    if "user_id" not in cols:
+        cursor.execute("DROP TABLE users")
+        cursor.execute("""
+        CREATE TABLE users (
+            user_id INTEGER PRIMARY KEY
+        )
+        """)
 
     conn.commit()
     conn.close()

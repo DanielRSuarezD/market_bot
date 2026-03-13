@@ -10,6 +10,16 @@ def check_alerts():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
+    # verificar si tabla existe
+    cursor.execute("""
+    SELECT name FROM sqlite_master
+    WHERE type='table' AND name='assets'
+    """)
+
+    if not cursor.fetchone():
+        conn.close()
+        return
+
     cursor.execute("SELECT DISTINCT asset FROM assets")
     rows = cursor.fetchall()
 
