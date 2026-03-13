@@ -1,70 +1,85 @@
 import sqlite3
 
-conn = sqlite3.connect("market.db")
-cursor = conn.cursor()
-
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS prices(
-asset TEXT,
-price REAL,
-timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-)
-""")
-
-conn.commit()
-
-
-def save_price(asset, price):
-
-    cursor.execute(
-        "INSERT INTO prices(asset,price) VALUES (?,?)",
-        (asset,price)
-    )
-
-    conn.commit()
-
-
-def get_last_price(asset):
-
-    cursor.execute(
-        "SELECT price FROM prices WHERE asset=? ORDER BY timestamp DESC LIMIT 1",
-        (asset,)
-    )
-
-    row = cursor.fetchone()
-
-    if row:
-        return row[0]
-
-    return None
-import sqlite3
-
 conn = sqlite3.connect("market.db", check_same_thread=False)
 cursor = conn.cursor()
 
+# =========================
+# USERS TABLE
+# =========================
+
 cursor.execute("""
-CREATE TABLE IF NOT EXISTS users(
-id INTEGER PRIMARY KEY
+CREATE TABLE IF NOT EXISTS users (
+    user_id INTEGER PRIMARY KEY
+)
+""")
+
+# =========================
+# USER ASSETS TABLE
+# =========================
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS user_assets (
+    user_id INTEGER,
+    asset TEXT
 )
 """)
 
 conn.commit()
 
+
+# =========================
+# ADD USER
+# =========================
 
 def add_user(user_id):
 
     cursor.execute(
-        "INSERT OR IGNORE INTO users(id) VALUES (?)",
+        "INSERT OR IGNORE INTO users (user_id) VALUES (?)",
         (user_id,)
     )
 
     conn.commit()
 
 
-def get_users():
+# =========================
+# ADD ASSET
+# =========================
 
-    cursor.execute("SELECT id FROM users")
+def add_asset(user_id, asset):
+
+    cursor.execute(
+        "INSERT INTO user_assets (user_id, asset) VALUES (?, ?)",
+        (user_id, asset)
+    )
+
+    conn.commit()
+
+
+# =========================
+# GET USER ASSETS
+# =========================
+
+def get_assets(user_id):
+
+    cursor.execute(
+        "SELECT asset FROM user_assets WHERE user_id=?",
+        (user_id,)
+    )
 
     rows = cursor.fetchall()
 
     return [r[0] for r in rows]
+
+
+# =========================
+# REMOVE ASSET
+# =========================
+
+def remove_asset(user_id, asset):
+
+    cursor.execute(
+        "DELETE FROM user_assets WHERE user_id=? AND asset=?",
+        (user_id, asset)
+    )
+
+    conn.commit()
