@@ -4,18 +4,33 @@ DB_NAME = "market.db"
 
 
 def init_db():
-
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
-    # crear tabla usuarios
+    # comprobar si tabla users existe
+    cursor.execute("""
+        SELECT name FROM sqlite_master
+        WHERE type='table' AND name='users'
+    """)
+    table_exists = cursor.fetchone()
+
+    if table_exists:
+
+        # comprobar columnas
+        cursor.execute("PRAGMA table_info(users)")
+        cols = [c[1] for c in cursor.fetchall()]
+
+        if "user_id" not in cols:
+            # tabla vieja -> eliminar
+            cursor.execute("DROP TABLE users")
+
+    # crear tabla correcta
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS users (
         user_id INTEGER PRIMARY KEY
     )
     """)
 
-    # crear tabla activos
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS assets (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -25,25 +40,10 @@ def init_db():
     """)
 
     conn.commit()
-
-    # verificar columnas de users
-    cursor.execute("PRAGMA table_info(users)")
-    cols = [c[1] for c in cursor.fetchall()]
-
-    if "user_id" not in cols:
-        cursor.execute("DROP TABLE users")
-        cursor.execute("""
-        CREATE TABLE users (
-            user_id INTEGER PRIMARY KEY
-        )
-        """)
-
-    conn.commit()
     conn.close()
 
 
 def add_user(user_id):
-
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
@@ -57,7 +57,6 @@ def add_user(user_id):
 
 
 def add_asset(user_id, asset):
-
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
@@ -71,7 +70,6 @@ def add_asset(user_id, asset):
 
 
 def get_assets(user_id):
-
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
