@@ -1,62 +1,49 @@
+import sqlite3
 import time
 from market_data import get_assets_data
-from database import get_assets
-from telegram import Bot
-from config import TOKEN
 
-
-bot = Bot(token=TOKEN)
+DB_NAME = "market.db"
 
 
 def check_alerts():
 
-    from database import cursor
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
 
-    cursor.execute("SELECT user_id FROM users")
-    users = cursor.fetchall()
+    cursor.execute("SELECT DISTINCT asset FROM assets")
+    rows = cursor.fetchall()
 
-    for u in users:
+    assets = [r[0] for r in rows]
 
-        user_id = u[0]
+    conn.close()
 
-        assets = get_assets(user_id)
+    if not assets:
+        return
 
-        if not assets:
-            continue
+    data = get_assets_data(assets)
 
-        data = get_assets_data(assets)
+    for asset in data:
 
-        for asset in data:
+        price = data[asset]["price"]
+        change = data[asset]["change"]
 
-            change = data[asset]["change"]
-            price = data[asset]["price"]
+        if abs(change) > 1:
 
-            if abs(change) > 1:
-
-                message = f"""
-🚨 MARKET ALERT
-
-{asset}
-
-Price: {price}
-Change: {change}%
-"""
-
-                try:
-
-                    bot.send_message(
-                        chat_id=user_id,
-                        text=message
-                    )
-
-                except:
-                    pass
+            print(
+                f"🚨 ALERT {asset} price={price} change={change}%"
+            )
 
 
 def start_alert_engine():
 
     while True:
 
-        check_alerts()
+        try:
 
-        time.sleep(300)
+            check_alerts()
+
+        except Exception as e:
+
+            print("ALERT ENGINE ERROR:", e)
+
+        time.sleep(60)
