@@ -21,8 +21,6 @@ def get_calendar():
             else:
                 date = "Upcoming"
 
-            # impacto simulado
-
             impact = random.choice(["🔴", "🟠", "🟢"])
 
             events.append((impact, date, title))
@@ -39,3 +37,16 @@ def get_calendar():
         ]
 
     return events
+
+
+async def calendar(update, context):
+
+    events = get_calendar()
+
+    text = "📅 ECONOMIC CALENDAR\n\n"
+
+    for impact, date, title in events:
+
+        text += f"{impact} {date}\n{title}\n\n"
+
+    await update.message.reply_text(text)
