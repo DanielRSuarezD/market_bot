@@ -4,19 +4,24 @@ DB_NAME = "market.db"
 
 
 def init_db():
+
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
-    # tabla usuarios
+    # borrar tablas antiguas si existen (evita conflictos de schema)
+    cursor.execute("DROP TABLE IF EXISTS users")
+    cursor.execute("DROP TABLE IF EXISTS assets")
+
+    # crear tabla users
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS users (
+    CREATE TABLE users (
         user_id INTEGER PRIMARY KEY
     )
     """)
 
-    # tabla activos seguidos por usuario
+    # crear tabla assets
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS assets (
+    CREATE TABLE assets (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
         asset TEXT
@@ -28,6 +33,7 @@ def init_db():
 
 
 def add_user(user_id):
+
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
@@ -41,6 +47,7 @@ def add_user(user_id):
 
 
 def add_asset(user_id, asset):
+
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
@@ -54,6 +61,7 @@ def add_asset(user_id, asset):
 
 
 def get_assets(user_id):
+
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
