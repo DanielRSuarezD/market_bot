@@ -1,111 +1,136 @@
 import yfinance as yf
 
-FX_TICKERS = {
 
-"MXN": "MXN=X",
-"BRL": "BRL=X",
-"COP": "COP=X",
-"PEN": "PEN=X",
-"CLP": "CLP=X",
-"ARS": "ARS=X",
-"UYU": "UYU=X",
-"CRC": "CRC=X"
+TICKERS = {
+
+# ENERGY
+"BRENT":"BZ=F",
+"WTI":"CL=F",
+
+# METALS
+"GOLD":"GC=F",
+"SILVER":"SI=F",
+
+# FX LATAM
+"MXN":"MXN=X",
+"BRL":"BRL=X",
+"COP":"COP=X",
+"PEN":"PEN=X",
+"CLP":"CLP=X",
+"ARS":"ARS=X",
+"UYU":"UYU=X",
+"CRC":"CRC=X",
+"GTQ":"GTQ=X",
+"BOB":"BOB=X",
+"PYG":"PYG=X",
+
+# FX GLOBAL
+"EUR":"EURUSD=X",
+"GBP":"GBPUSD=X",
+"CHF":"CHF=X",
+"JPY":"JPY=X",
+"RUB":"RUB=X",
+"AED":"AED=X",
+
+# INDICES
+"SP500":"^GSPC",
+"NASDAQ":"^IXIC",
+
+# DOLLAR INDEX
+"DXY":"DX-Y.NYB"
 
 }
 
-ENERGY_TICKERS = {
 
-"BRENT": "BZ=F",
-"WTI": "CL=F",
-"NATGAS": "NG=F",
-"GASOLINE": "RB=F"
+FLAGS = {
+
+"MXN":"🇲🇽",
+"BRL":"🇧🇷",
+"COP":"🇨🇴",
+"PEN":"🇵🇪",
+"CLP":"🇨🇱",
+"ARS":"🇦🇷",
+"UYU":"🇺🇾",
+"CRC":"🇨🇷",
+"GTQ":"🇬🇹",
+"BOB":"🇧🇴",
+"PYG":"🇵🇾",
+
+"EUR":"🇪🇺",
+"GBP":"🇬🇧",
+"CHF":"🇨🇭",
+"JPY":"🇯🇵",
+"RUB":"🇷🇺",
+"AED":"🇦🇪"
 
 }
 
-GLOBAL_TICKERS = {
 
-"SP500": "^GSPC",
-"NASDAQ": "^IXIC",
-"DOW": "^DJI",
-"DAX": "^GDAXI",
-"NIKKEI": "^N225",
+def get_price(symbol):
 
-"GOLD": "GC=F",
-"SILVER": "SI=F",
+    ticker = yf.Ticker(symbol)
 
-"BITCOIN": "BTC-USD",
-"ETHEREUM": "ETH-USD"
+    data = ticker.history(period="1d")
 
-}
+    close = data["Close"].iloc[-1]
+    openp = data["Open"].iloc[-1]
 
-def get_price(ticker):
+    change = ((close-openp)/openp)*100
 
-    data = yf.Ticker(ticker)
-
-    hist = data.history(period="2d")
-
-    if len(hist) < 2:
-        return None
-
-    today = hist["Close"].iloc[-1]
-    yesterday = hist["Close"].iloc[-2]
-
-    change = today - yesterday
-    pct = (change / yesterday) * 100
-
-    return round(today,2), round(pct,2)
-
-def get_assets_data(assets):
-
-    results = {}
-
-    for asset in assets:
-
-        ticker = None
-
-        if asset in FX_TICKERS:
-            ticker = FX_TICKERS[asset]
-
-        elif asset in ENERGY_TICKERS:
-            ticker = ENERGY_TICKERS[asset]
-
-        elif asset in GLOBAL_TICKERS:
-            ticker = GLOBAL_TICKERS[asset]
-
-        if ticker:
-
-            data = get_price(ticker)
-
-            if data:
-
-                price, pct = data
-
-                results[asset] = {
-
-                    "price": price,
-                    "change": pct
-
-                }
-
-    return results
+    return round(close,2), round(change,2)
 
 
-def get_top_movers():
+def get_market():
 
-    assets = []
+    text="🌍 MARKET MONITOR\n\n"
 
-    assets += list(FX_TICKERS.keys())
-    assets += list(ENERGY_TICKERS.keys())
-    assets += list(GLOBAL_TICKERS.keys())
+# ENERGY
+    text+="🛢 ENERGY\n"
 
-    data = get_assets_data(assets)
+    for asset in ["BRENT","WTI"]:
 
-    movers = []
+        price,change=get_price(TICKERS[asset])
 
-    for asset in data:
+        dot="🔴" if change<0 else "🟢"
 
-        movers.append((asset, data[asset]["change"]))
+        text+=f"{asset}: {price} {dot} ({change}%)\n"
 
-    movers.sort(key=lambda x: abs(x[1]), reverse=True)
+    text+="\n"
 
-    return movers[:5]
+# METALS
+    text+="🥇 METALS\n"
+
+    for asset in ["GOLD","SILVER"]:
+
+        price,change=get_price(TICKERS[asset])
+
+        dot="🔴" if change<0 else "🟢"
+
+        text+=f"{asset}: {price} {dot} ({change}%)\n"
+
+    text+="\n"
+
+# FX
+    text+="💱 FX MARKETS\n"
+
+    for asset in ["EUR","MXN","COP","PEN","CRC","RUB"]:
+
+        price,change=get_price(TICKERS[asset])
+
+        flag=FLAGS.get(asset,"")
+
+        dot="🔴" if change<0 else "🟢"
+
+        text+=f"{flag} {asset}: {price} {dot} ({change}%)\n"
+
+    text+="\n"
+
+# DOLLAR INDEX
+    price,change=get_price(TICKERS["DXY"])
+
+    dot="🔴" if change<0 else "🟢"
+
+    text+="💵 DOLLAR INDEX\n"
+    text+=f"DXY: {price} {dot} ({change}%)\n"
+
+    return text
