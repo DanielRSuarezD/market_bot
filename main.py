@@ -1,26 +1,20 @@
-import threading
-
 from telegram import Update,InlineKeyboardButton,InlineKeyboardMarkup
-from telegram.ext import (
-ApplicationBuilder,
-CommandHandler,
-CallbackQueryHandler,
-ContextTypes
-)
+from telegram.ext import ApplicationBuilder,CommandHandler,CallbackQueryHandler,ContextTypes
 
 from config import TOKEN
 from database import init_db,add_user,add_asset,get_assets
+
 from market_data import get_market
-from alerts import start_alert_engine
+
+from news import news
+from calendar import calendar
+from flows import flows
+from movers import movers
 
 
-FX_LATAM=[
-"MXN","BRL","COP","PEN","CLP","ARS","UYU","CRC","GTQ","BOB","PYG"
-]
+FX_LATAM=["MXN","BRL","COP","PEN","CLP","ARS","UYU","CRC","GTQ","BOB","PYG"]
 
-FX_GLOBAL=[
-"EUR","GBP","CHF","JPY","RUB","AED"
-]
+FX_GLOBAL=["EUR","GBP","CHF","JPY","RUB","AED"]
 
 ENERGY=["BRENT","WTI"]
 
@@ -34,7 +28,6 @@ def keyboard(items):
     kb=[]
 
     for i in items:
-
         kb.append([InlineKeyboardButton(i,callback_data=f"asset_{i}")])
 
     kb.append([InlineKeyboardButton("DONE",callback_data="done")])
@@ -50,28 +43,31 @@ async def start(update:Update,context:ContextTypes.DEFAULT_TYPE):
     add_user(user)
 
     kb=[
-
     [InlineKeyboardButton("FX LATAM",callback_data="latam")],
     [InlineKeyboardButton("FX GLOBAL",callback_data="global")],
     [InlineKeyboardButton("ENERGY",callback_data="energy")],
     [InlineKeyboardButton("METALS",callback_data="metals")],
     [InlineKeyboardButton("INDICES",callback_data="indices")],
     [InlineKeyboardButton("WATCHLIST",callback_data="watch")]
-
     ]
 
     await update.message.reply_text(
-
     "🌍 Global Market Monitor\n\nChoose category",
-
     reply_markup=InlineKeyboardMarkup(kb)
-
     )
 
 
 async def market(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
-    text=get_market()
+    assets=get_assets(update.effective_user.id)
+
+    if not assets:
+
+        await update.message.reply_text("No assets selected")
+
+        return
+
+    text=get_market(assets)
 
     await update.message.reply_text(text)
 
@@ -83,55 +79,22 @@ async def router(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
     data=query.data
 
+
     if data=="latam":
-
-        await query.edit_message_text(
-
-        "Select LATAM FX",
-
-        reply_markup=keyboard(FX_LATAM)
-
-        )
+        await query.edit_message_text("Select LATAM FX",reply_markup=keyboard(FX_LATAM))
 
     elif data=="global":
-
-        await query.edit_message_text(
-
-        "Select GLOBAL FX",
-
-        reply_markup=keyboard(FX_GLOBAL)
-
-        )
+        await query.edit_message_text("Select GLOBAL FX",reply_markup=keyboard(FX_GLOBAL))
 
     elif data=="energy":
-
-        await query.edit_message_text(
-
-        "Select ENERGY",
-
-        reply_markup=keyboard(ENERGY)
-
-        )
+        await query.edit_message_text("Select ENERGY",reply_markup=keyboard(ENERGY))
 
     elif data=="metals":
-
-        await query.edit_message_text(
-
-        "Select METALS",
-
-        reply_markup=keyboard(METALS)
-
-        )
+        await query.edit_message_text("Select METALS",reply_markup=keyboard(METALS))
 
     elif data=="indices":
+        await query.edit_message_text("Select INDICES",reply_markup=keyboard(INDICES))
 
-        await query.edit_message_text(
-
-        "Select INDICES",
-
-        reply_markup=keyboard(INDICES)
-
-        )
 
     elif data.startswith("asset_"):
 
@@ -140,6 +103,7 @@ async def router(update:Update,context:ContextTypes.DEFAULT_TYPE):
         add_asset(query.from_user.id,asset)
 
         await query.answer(f"{asset} added")
+
 
     elif data=="watch":
 
@@ -152,13 +116,10 @@ async def router(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
         await query.edit_message_text(text)
 
+
     elif data=="done":
 
-        await query.edit_message_text(
-
-        "Selection saved.\nUse /market"
-
-        )
+        await query.edit_message_text("Selection saved. Use /market")
 
 
 init_db()
@@ -167,9 +128,12 @@ app=ApplicationBuilder().token(TOKEN).build()
 
 app.add_handler(CommandHandler("start",start))
 app.add_handler(CommandHandler("market",market))
-app.add_handler(CallbackQueryHandler(router))
+app.add_handler(CommandHandler("news",news))
+app.add_handler(CommandHandler("calendar",calendar))
+app.add_handler(CommandHandler("flows",flows))
+app.add_handler(CommandHandler("movers",movers))
 
-threading.Thread(target=start_alert_engine,args=(app.bot,),daemon=True).start()
+app.add_handler(CallbackQueryHandler(router))
 
 print("BOT RUNNING")
 
