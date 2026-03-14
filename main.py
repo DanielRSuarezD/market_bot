@@ -1,224 +1,176 @@
 import threading
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update,InlineKeyboardButton,InlineKeyboardMarkup
 from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    CallbackQueryHandler,
-    ContextTypes
+ApplicationBuilder,
+CommandHandler,
+CallbackQueryHandler,
+ContextTypes
 )
 
 from config import TOKEN
-from database import init_db, add_user, add_asset, get_assets
+from database import init_db,add_user,add_asset,get_assets
+from market_data import get_market
+from alerts import start_alert_engine
 
 
-# =========================
-# ASSETS
-# =========================
+FX_LATAM=[
+"MXN","BRL","COP","PEN","CLP","ARS","UYU","CRC","GTQ","BOB","PYG"
+]
 
-FX_LATAM = ["MXN","BRL","COP","PEN","CLP","ARS","UYU","CRC"]
+FX_GLOBAL=[
+"EUR","GBP","CHF","JPY","RUB","AED"
+]
 
-FX_GLOBAL = ["EUR","GBP","CHF","JPY","RUB","AED","AUD","CAD"]
+ENERGY=["BRENT","WTI"]
 
-ENERGY = ["BRENT","WTI","NATGAS"]
+METALS=["GOLD","SILVER"]
 
-GLOBAL_INDICES = ["SP500","NASDAQ","DAX","FTSE","NIKKEI"]
-
-
-# =========================
-# KEYBOARD BUILDER
-# =========================
-
-def build_keyboard(items):
-
-    keyboard = []
-
-    for asset in items:
-        keyboard.append(
-            [InlineKeyboardButton(asset, callback_data=f"asset_{asset}")]
-        )
-
-    keyboard.append([InlineKeyboardButton("DONE", callback_data="done")])
-    keyboard.append([InlineKeyboardButton("BACK", callback_data="back")])
-
-    return InlineKeyboardMarkup(keyboard)
+INDICES=["SP500","NASDAQ"]
 
 
-# =========================
-# START
-# =========================
+def keyboard(items):
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    kb=[]
 
-    user_id = update.effective_user.id
-    add_user(user_id)
+    for i in items:
 
-    keyboard = [
+        kb.append([InlineKeyboardButton(i,callback_data=f"asset_{i}")])
 
-        [InlineKeyboardButton("FX LATAM", callback_data="fx_latam")],
-        [InlineKeyboardButton("FX GLOBAL", callback_data="fx_global")],
-        [InlineKeyboardButton("ENERGY", callback_data="energy")],
-        [InlineKeyboardButton("GLOBAL INDICES", callback_data="indices")],
-        [InlineKeyboardButton("WATCHLIST", callback_data="portfolio")]
+    kb.append([InlineKeyboardButton("DONE",callback_data="done")])
+    kb.append([InlineKeyboardButton("BACK",callback_data="back")])
+
+    return InlineKeyboardMarkup(kb)
+
+
+async def start(update:Update,context:ContextTypes.DEFAULT_TYPE):
+
+    user=update.effective_user.id
+
+    add_user(user)
+
+    kb=[
+
+    [InlineKeyboardButton("FX LATAM",callback_data="latam")],
+    [InlineKeyboardButton("FX GLOBAL",callback_data="global")],
+    [InlineKeyboardButton("ENERGY",callback_data="energy")],
+    [InlineKeyboardButton("METALS",callback_data="metals")],
+    [InlineKeyboardButton("INDICES",callback_data="indices")],
+    [InlineKeyboardButton("WATCHLIST",callback_data="watch")]
 
     ]
 
     await update.message.reply_text(
 
-        "🌍 GLOBAL MARKET TERMINAL\n\nSelect category:",
+    "🌍 Global Market Monitor\n\nChoose category",
 
-        reply_markup=InlineKeyboardMarkup(keyboard)
+    reply_markup=InlineKeyboardMarkup(kb)
 
     )
 
 
-# =========================
-# ROUTER
-# =========================
+async def market(update:Update,context:ContextTypes.DEFAULT_TYPE):
 
-async def router(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text=get_market()
 
-    query = update.callback_query
+    await update.message.reply_text(text)
+
+
+async def router(update:Update,context:ContextTypes.DEFAULT_TYPE):
+
+    query=update.callback_query
     await query.answer()
 
-    data = query.data
+    data=query.data
 
-
-# FX LATAM
-    if data == "fx_latam":
+    if data=="latam":
 
         await query.edit_message_text(
 
-            "Select LATAM FX",
+        "Select LATAM FX",
 
-            reply_markup=build_keyboard(FX_LATAM)
+        reply_markup=keyboard(FX_LATAM)
 
         )
 
-
-# FX GLOBAL
-    elif data == "fx_global":
+    elif data=="global":
 
         await query.edit_message_text(
 
-            "Select GLOBAL FX",
+        "Select GLOBAL FX",
 
-            reply_markup=build_keyboard(FX_GLOBAL)
+        reply_markup=keyboard(FX_GLOBAL)
 
         )
 
-
-# ENERGY
-    elif data == "energy":
+    elif data=="energy":
 
         await query.edit_message_text(
 
-            "Select ENERGY",
+        "Select ENERGY",
 
-            reply_markup=build_keyboard(ENERGY)
+        reply_markup=keyboard(ENERGY)
 
         )
 
-
-# INDICES
-    elif data == "indices":
+    elif data=="metals":
 
         await query.edit_message_text(
 
-            "Select GLOBAL INDICES",
+        "Select METALS",
 
-            reply_markup=build_keyboard(GLOBAL_INDICES)
+        reply_markup=keyboard(METALS)
 
         )
 
+    elif data=="indices":
 
-# ADD ASSET
+        await query.edit_message_text(
+
+        "Select INDICES",
+
+        reply_markup=keyboard(INDICES)
+
+        )
+
     elif data.startswith("asset_"):
 
-        asset = data.replace("asset_", "")
+        asset=data.replace("asset_","")
 
-        add_asset(query.from_user.id, asset)
+        add_asset(query.from_user.id,asset)
 
         await query.answer(f"{asset} added")
 
+    elif data=="watch":
 
-# WATCHLIST
-    elif data == "portfolio":
+        assets=get_assets(query.from_user.id)
 
-        assets = get_assets(query.from_user.id)
+        text="📊 YOUR WATCHLIST\n\n"
 
-        if not assets:
-
-            text = "No assets selected"
-
-        else:
-
-            text = "📊 YOUR WATCHLIST\n\n"
-
-            for a in assets:
-
-                text += f"{a}\n"
+        for a in assets:
+            text+=f"{a}\n"
 
         await query.edit_message_text(text)
 
-
-# DONE
-    elif data == "done":
+    elif data=="done":
 
         await query.edit_message_text(
 
-            "Selection saved.\nUse /start to add more."
+        "Selection saved.\nUse /market"
 
         )
 
-
-# BACK
-    elif data == "back":
-
-        keyboard = [
-
-            [InlineKeyboardButton("FX LATAM", callback_data="fx_latam")],
-            [InlineKeyboardButton("FX GLOBAL", callback_data="fx_global")],
-            [InlineKeyboardButton("ENERGY", callback_data="energy")],
-            [InlineKeyboardButton("GLOBAL INDICES", callback_data="indices")],
-            [InlineKeyboardButton("WATCHLIST", callback_data="portfolio")]
-
-        ]
-
-        await query.edit_message_text(
-
-            "Select category:",
-
-            reply_markup=InlineKeyboardMarkup(keyboard)
-
-        )
-
-
-# =========================
-# ERROR HANDLER
-# =========================
-
-async def error_handler(update, context):
-
-    print("ERROR:", context.error)
-# =========================
-# INIT DATABASE
-# =========================
 
 init_db()
 
+app=ApplicationBuilder().token(TOKEN).build()
 
-# =========================
-# START BOT
-# =========================
-
-app = ApplicationBuilder().token(TOKEN).build()
-
-app.add_handler(CommandHandler("start", start))
+app.add_handler(CommandHandler("start",start))
+app.add_handler(CommandHandler("market",market))
 app.add_handler(CallbackQueryHandler(router))
 
-app.add_error_handler(error_handler)
+threading.Thread(target=start_alert_engine,args=(app.bot,),daemon=True).start()
 
-print("BOT RUNNING...")
+print("BOT RUNNING")
 
 app.run_polling(drop_pending_updates=True)
