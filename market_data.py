@@ -44,25 +44,12 @@ TICKERS = {
 
 FLAGS = {
 
-"MXN":"🇲🇽",
-"BRL":"🇧🇷",
-"COP":"🇨🇴",
-"PEN":"🇵🇪",
-"CLP":"🇨🇱",
-"ARS":"🇦🇷",
-"UYU":"🇺🇾",
-"CRC":"🇨🇷",
-"GTQ":"🇬🇹",
-"BOB":"🇧🇴",
-"PYG":"🇵🇾",
+"MXN":"🇲🇽","BRL":"🇧🇷","COP":"🇨🇴","PEN":"🇵🇪",
+"CLP":"🇨🇱","ARS":"🇦🇷","UYU":"🇺🇾","CRC":"🇨🇷",
+"GTQ":"🇬🇹","BOB":"🇧🇴","PYG":"🇵🇾",
 
-"EUR":"🇪🇺",
-"GBP":"🇬🇧",
-"CHF":"🇨🇭",
-"JPY":"🇯🇵",
-"RUB":"🇷🇺",
-"AED":"🇦🇪"
-
+"EUR":"🇪🇺","GBP":"🇬🇧","CHF":"🇨🇭",
+"JPY":"🇯🇵","RUB":"🇷🇺","AED":"🇦🇪"
 }
 
 
@@ -80,55 +67,66 @@ def get_price(symbol):
     return round(close,2), round(change,2)
 
 
-def get_market():
+def build_line(asset):
+
+    price,change = get_price(TICKERS[asset])
+
+    flag = FLAGS.get(asset,"")
+
+    dot = "🟢" if change >= 0 else "🔴"
+
+    return f"{flag} {asset}: {price} {dot} ({change}%)\n"
+
+
+def get_market(user_assets):
 
     text="🌍 MARKET MONITOR\n\n"
 
+
 # ENERGY
-    text+="🛢 ENERGY\n"
+    energy = [a for a in user_assets if a in ["BRENT","WTI"]]
 
-    for asset in ["BRENT","WTI"]:
+    if energy:
+        text+="🛢 ENERGY\n"
+        for a in energy:
+            text+=build_line(a)
+        text+="\n"
 
-        price,change=get_price(TICKERS[asset])
-
-        dot="🔴" if change<0 else "🟢"
-
-        text+=f"{asset}: {price} {dot} ({change}%)\n"
-
-    text+="\n"
 
 # METALS
-    text+="🥇 METALS\n"
+    metals = [a for a in user_assets if a in ["GOLD","SILVER"]]
 
-    for asset in ["GOLD","SILVER"]:
+    if metals:
+        text+="🥇 METALS\n"
+        for a in metals:
+            text+=build_line(a)
+        text+="\n"
 
-        price,change=get_price(TICKERS[asset])
-
-        dot="🔴" if change<0 else "🟢"
-
-        text+=f"{asset}: {price} {dot} ({change}%)\n"
-
-    text+="\n"
 
 # FX
-    text+="💱 FX MARKETS\n"
+    fx = [a for a in user_assets if a in FLAGS]
 
-    for asset in ["EUR","MXN","COP","PEN","CRC","RUB"]:
+    if fx:
+        text+="💱 FX MARKETS\n"
+        for a in fx:
+            text+=build_line(a)
+        text+="\n"
 
-        price,change=get_price(TICKERS[asset])
 
-        flag=FLAGS.get(asset,"")
+# INDICES
+    idx = [a for a in user_assets if a in ["SP500","NASDAQ"]]
 
-        dot="🔴" if change<0 else "🟢"
+    if idx:
+        text+="📈 INDICES\n"
+        for a in idx:
+            text+=build_line(a)
+        text+="\n"
 
-        text+=f"{flag} {asset}: {price} {dot} ({change}%)\n"
 
-    text+="\n"
-
-# DOLLAR INDEX
+# DXY
     price,change=get_price(TICKERS["DXY"])
 
-    dot="🔴" if change<0 else "🟢"
+    dot="🟢" if change>=0 else "🔴"
 
     text+="💵 DOLLAR INDEX\n"
     text+=f"DXY: {price} {dot} ({change}%)\n"
