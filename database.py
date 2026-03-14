@@ -1,4 +1,4 @@
-mport sqlite3
+import sqlite3
 
 DB_NAME = "market.db"
 
